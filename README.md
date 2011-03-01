@@ -16,7 +16,7 @@ you want to work with keying name to id.
     $ lein run search safe timeout # field defaults to "all"
 
 To avoid startup time, run <tt>lein interactive</tt> to keep the JVM
-resident, and do <tt>search safe timeout</tt> inside the interactive
+resident, and do <tt>run search PROJECT QUERY</tt> inside the interactive
 session:
 
     $ lein interactive

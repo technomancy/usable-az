@@ -104,14 +104,17 @@
                                        10000))))))
 
 (defn usage []
-  (println (str "Usage: lein run index PROJECT_NAME\n" "\n  or\n"
-                "lein run search PROJECT_NAME KEY VALUE")))
+  (println "Usage: lein run index PROJECT_NAME\n\n"
+           " or\n\nlein run search PROJECT_NAME KEY VALUE"))
 
-(defn -main [command project-name & [key value]]
-  (let [project-id (get-in (config) [:projects project-name])]
+(defn -main [command & [project-name key value]]
+  (if-let [project-id (get-in (config) [:projects project-name])]
     (condp = command
         "index" (index-project project-id)
         "search" (if value
                    (search project-id key value)
                    (search project-id "_all" key))
-        :>> (usage))))
+        "show" (search project-id "id" key)
+        :>> (usage))
+    (println "You did not specify a known project. Try one of these:"
+             (keys (:projects (config))))))
