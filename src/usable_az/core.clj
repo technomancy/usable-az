@@ -52,20 +52,28 @@
 (def fields [:id :status :creator :details :text :phase :color :owner :size
              :priority :tasks :tags :comments])
 
-(defn make-field [field-name value]
-  (Field. (name field-name) (if (map? value)
-                              (or (:text value) (:name value))
-                              (str value))
+(defn extract-value [value all-field]
+  (let [value (if (map? value)
+                (or (:text value) (:name value))
+                (str value))]
+    (swap! all-field str " " value)
+    value))
+
+(defn make-field [field-name value all-field]
+  (Field. (name field-name) (extract-value value all-field)
           Field$Store/YES Field$Index/ANALYZED))
 
 (defn make-document [story]
-  (let [doc (Document.)]
+  (let [doc (Document.)
+        ;; ick! would use a reduce here if I cared enough
+        all-field (atom "")]
     (doseq [field-name fields]
       (when-let [value (field-name story)]
         (if (vector? value)
           (doseq [v value]
-            (.add doc (make-field field-name v)))
-          (.add doc (make-field field-name value)))))
+            (.add doc (make-field field-name v all-field)))
+          (.add doc (make-field field-name value all-field)))))
+    (.add doc (Field. "_all" @all-field Field$Store/NO Field$Index/ANALYZED))
     doc))
 
 (defn index-story [writer story]
@@ -105,5 +113,5 @@
         "index" (index-project project-id)
         "search" (if value
                    (search project-id key value)
-                   (search project-id "text" key))
+                   (search project-id "_all" key))
         :>> (usage))))
