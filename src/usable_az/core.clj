@@ -15,7 +15,8 @@
            (org.apache.lucene.util Version)
            (org.apache.lucene.document Field Field$Store Field$Index)))
 
-(def stories-url "https://agilezen.com/api/v1/projects/%s/stories?page=%s")
+(def stories-url (str "https://agilezen.com/api/v1/projects/%s/stories?page=%s"
+                      "&with=details,tasks,tags,comments"))
 
 (defn config []
   (read-string (slurp (io/resource "config.clj"))))
@@ -48,20 +49,23 @@
                                    IndexWriter$MaxFieldLength/UNLIMITED)]
      ~@body))
 
-(def fields [:status :creator :text :phase :color :owner :size :priority :id])
+(def fields [:id :status :creator :details :text :phase :color :owner :size
+             :priority :tasks :tags :comments])
 
-(defn make-field [field-name story]
-  (when-let [value (field-name story)]
-    (Field. (name field-name) (if (map? value)
-                                (:name value)
-                                (str value))
-            Field$Store/YES Field$Index/ANALYZED)))
+(defn make-field [field-name value]
+  (Field. (name field-name) (if (map? value)
+                              (or (:text value) (:name value))
+                              (str value))
+          Field$Store/YES Field$Index/ANALYZED))
 
 (defn make-document [story]
   (let [doc (Document.)]
     (doseq [field-name fields]
-      (when-let [field (make-field field-name story)]
-        (.add doc field)))
+      (when-let [value (field-name story)]
+        (if (vector? value)
+          (doseq [v value]
+            (.add doc (make-field field-name v)))
+          (.add doc (make-field field-name value)))))
     doc))
 
 (defn index-story [writer story]
@@ -80,7 +84,7 @@
 (defn results [searcher top-docs]
   (for [score-doc (.scoreDocs top-docs)
         :let [doc (.doc searcher (.doc score-doc))]]
-    (reduce #(assoc %1 %2 (first (.getValues doc (name %2))))
+    (reduce #(assoc %1 %2 (.getValues doc (name %2)))
             {} fields)))
 
 (defn search [project-id key value]
